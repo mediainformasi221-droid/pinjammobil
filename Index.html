@@ -1,1309 +1,276 @@
 <!doctype html>
 <html lang="id" class="h-full">
- <head>
+<head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Peminjaman Mobil Dinas</title>
-  <script src="/_sdk/data_sdk.js"></script>
-  <script src="/_sdk/element_sdk.js"></script>
+  <title>Sistem Kirim Surat - Sinkron Cloud Pro</title>a
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
-    body {
-      box-sizing: border-box;
-    }
-    
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-    
-    * {
-      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-    }
-    
-    .vehicle-card {
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      border: 2px solid transparent;
-    }
-    
-    .vehicle-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
-    }
-    
-    .modal-overlay {
-      backdrop-filter: blur(8px);
-      animation: fadeIn 0.2s ease-out;
-    }
-    
-    .modal-content {
-      animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-    
-    @keyframes slideUp {
-      from {
-        opacity: 0;
-        transform: translateY(20px) scale(0.95);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-      }
-    }
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+    * { font-family: 'Plus Jakarta Sans', sans-serif; box-sizing: border-box; }
     
     .toast {
-      position: fixed;
-      top: 24px;
-      right: 24px;
-      padding: 16px 24px;
-      border-radius: 12px;
-      color: white;
-      font-weight: 600;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-      animation: slideInRight 0.3s ease-out;
-      z-index: 9999;
-      max-width: 400px;
+      position: fixed; top: 20px; right: 20px;
+      padding: 1rem 1.5rem; border-radius: 0.5rem;
+      color: white; z-index: 1000; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+      animation: slideIn 0.3s ease-out;
     }
-    
-    @keyframes slideInRight {
-      from {
-        opacity: 0;
-        transform: translateX(100px);
-      }
-      to {
-        opacity: 1;
-        transform: translateX(0);
-      }
+
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    .tab-active { border-bottom: 3px solid #4f46e5; color: #4f46e5; background: #f5f3ff; }
+
+    .loader {
+      border: 3px solid #f3f3f3; border-top: 3px solid #4f46e5;
+      border-radius: 50%; width: 20px; height: 20px;
+      animation: spin 1s linear infinite; display: inline-block;
     }
-    
-    .status-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 8px 16px;
-      border-radius: 9999px;
-      font-weight: 600;
-      font-size: 14px;
-    }
-    
-    .loading-spinner {
-      border: 3px solid rgba(255, 255, 255, 0.3);
-      border-top-color: white;
-      border-radius: 50%;
-      width: 20px;
-      height: 20px;
-      animation: spin 0.8s linear infinite;
-    }
-    
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-    
-    .btn-primary {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      transition: all 0.3s ease;
-    }
-    
-    .btn-primary:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 12px 24px rgba(102, 126, 234, 0.4);
-    }
-    
-    .btn-success {
-      background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-    }
-    
-    .btn-success:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 12px 24px rgba(56, 239, 125, 0.4);
-    }
-    
-    .btn-danger {
-      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    }
-    
-    .btn-danger:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 12px 24px rgba(245, 87, 108, 0.4);
-    }
-    
-    input:focus, select:focus {
-      outline: none;
-      border-color: #667eea;
-      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
-  <style>@view-transition { navigation: auto; }</style>
- </head>
- <body class="h-full">
-  <div id="app-container" class="w-full h-full overflow-auto" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-   <div class="min-h-full py-8 px-4">
-    <div class="max-w-7xl mx-auto"><!-- Header -->
-     <div class="text-center mb-12">
-      <h1 id="app-title" class="text-5xl font-bold text-white mb-3" style="text-shadow: 0 2px 20px rgba(0,0,0,0.2);">🚗 Peminjaman Mobil Dinas</h1>
-      <p id="app-subtitle" class="text-xl text-white text-opacity-90">Sistem Manajemen Kendaraan Operasional</p>
-     </div><!-- Action Buttons -->
-     <div class="text-center mb-8 flex flex-wrap justify-center gap-4"><button id="login-menu-btn" class="text-white font-bold py-4 px-8 rounded-2xl text-lg inline-flex items-center gap-3 shadow-2xl" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"> <span class="text-2xl">🔐</span> <span>Menu Admin</span> </button>
-     </div><!-- Admin Action Buttons (Hidden by default) -->
-     <div id="admin-menu" class="text-center mb-8 flex-wrap justify-center gap-4 hidden"><button id="add-vehicle-btn" class="btn-primary text-white font-bold py-4 px-8 rounded-2xl text-lg inline-flex items-center gap-3 shadow-2xl"> <span class="text-2xl">➕</span> <span>Tambah Kendaraan Baru</span> </button> <button id="maintenance-menu-btn" class="text-white font-bold py-4 px-8 rounded-2xl text-lg inline-flex items-center gap-3 shadow-2xl" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);"> <span class="text-2xl">🔧</span> <span>Kelola Maintenance</span> </button> <button id="report-menu-btn" class="text-white font-bold py-4 px-8 rounded-2xl text-lg inline-flex items-center gap-3 shadow-2xl" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);"> <span class="text-2xl">📊</span> <span>Laporan Riwayat</span> </button> <button id="logout-btn" class="text-white font-bold py-4 px-8 rounded-2xl text-lg inline-flex items-center gap-3 shadow-2xl" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);"> <span class="text-2xl">🚪</span> <span>Logout</span> </button>
-     </div><!-- Vehicle Cards Grid -->
-     <div id="vehicles-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"><!-- Cards will be inserted here -->
-     </div><!-- Empty State -->
-     <div id="empty-state" class="text-center py-16 hidden">
-      <div class="text-8xl mb-6">
-       🚗
-      </div>
-      <h3 class="text-2xl font-bold text-white mb-3">Belum Ada Kendaraan</h3>
-      <p class="text-white text-opacity-80 mb-8">Klik tombol di atas untuk menambahkan kendaraan pertama Anda</p>
-     </div>
-    </div>
-   </div><!-- Add Vehicle Modal -->
-   <div id="add-modal" class="modal-overlay fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-4" style="z-index: 1000;">
-    <div class="modal-content bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-     <div class="p-8">
-      <div class="flex items-center justify-between mb-6">
-       <h2 class="text-3xl font-bold" style="color: #667eea;">Tambah Kendaraan Baru</h2><button id="close-add-modal" class="text-gray-400 hover:text-gray-600 text-3xl leading-none">×</button>
-      </div>
-      <form id="add-vehicle-form" class="space-y-6">
-       <div><label class="block text-sm font-semibold text-gray-700 mb-2">Nama Kendaraan *</label> <input type="text" id="add-nama-kendaraan" required class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl transition-all" placeholder="Contoh: Toyota Avanza Hitam">
-       </div>
-       <div><label class="block text-sm font-semibold text-gray-700 mb-2">Jenis Kendaraan *</label> <select id="add-jenis-kendaraan" required class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl transition-all"> <option value="">Pilih Jenis Kendaraan</option> <option value="Operasional">Kendaraan Operasional</option> <option value="Kepala Kantor">Mobil Dinas Kepala Kantor</option> </select>
-       </div>
-       <div><label class="block text-sm font-semibold text-gray-700 mb-2">Tanggal Maintenance</label> <input type="date" id="add-maintenance" class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl transition-all">
-        <p class="text-xs text-gray-500 mt-1">Opsional: Jadwalkan maintenance kendaraan</p>
-       </div>
-       <div class="flex gap-4 pt-4"><button type="button" id="cancel-add-btn" class="flex-1 py-3 px-6 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all"> Batal </button> <button type="submit" class="flex-1 btn-success text-white py-3 px-6 rounded-xl font-semibold"> Simpan Kendaraan </button>
-       </div>
-      </form>
-     </div>
-    </div>
-   </div><!-- Borrow Modal -->
-   <div id="borrow-modal" class="modal-overlay fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-4" style="z-index: 1000;">
-    <div class="modal-content bg-white rounded-3xl shadow-2xl max-w-2xl w-full">
-     <div class="p-8">
-      <div class="flex items-center justify-between mb-6">
-       <h2 class="text-3xl font-bold" style="color: #667eea;">Form Peminjaman</h2><button id="close-borrow-modal" class="text-gray-400 hover:text-gray-600 text-3xl leading-none">×</button>
-      </div>
-      <div class="mb-6 p-4 bg-purple-50 rounded-xl">
-       <p class="text-sm font-semibold text-gray-600">Kendaraan:</p>
-       <p id="borrow-vehicle-name" class="text-xl font-bold text-purple-700"></p>
-      </div>
-      <form id="borrow-form" class="space-y-6">
-       <div><label class="block text-sm font-semibold text-gray-700 mb-2">Nama Peminjam *</label> <input type="text" id="borrow-nama-peminjam" required class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl transition-all" placeholder="Masukkan nama Anda">
-       </div>
-       <div><label class="block text-sm font-semibold text-gray-700 mb-2">Seksi *</label> <input type="text" id="borrow-seksi" required class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl transition-all" placeholder="Contoh: Administrasi">
-       </div>
-       <div><label class="block text-sm font-semibold text-gray-700 mb-2">Lokasi Tujuan *</label> <input type="text" id="borrow-lokasi" required class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl transition-all" placeholder="Contoh: Kantor Cabang Jakarta">
-       </div>
-       <div><label class="block text-sm font-semibold text-gray-700 mb-2">Nama Driver</label> <input type="text" id="borrow-driver" class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl transition-all" placeholder="Masukkan nama driver (opsional)">
-       </div>
-       <div class="flex gap-4 pt-4"><button type="button" id="cancel-borrow-btn" class="flex-1 py-3 px-6 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all"> Batal </button> <button type="submit" class="flex-1 btn-primary text-white py-3 px-6 rounded-xl font-semibold flex items-center justify-center gap-2"> <span>Konfirmasi Pinjam</span> </button>
-       </div>
-      </form>
-     </div>
-    </div>
-   </div><!-- Return Modal -->
-   <div id="return-modal" class="modal-overlay fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-4" style="z-index: 1000;">
-    <div class="modal-content bg-white rounded-3xl shadow-2xl max-w-2xl w-full">
-     <div class="p-8">
-      <div class="flex items-center justify-between mb-6">
-       <h2 class="text-3xl font-bold" style="color: #11998e;">Form Pengembalian</h2><button id="close-return-modal" class="text-gray-400 hover:text-gray-600 text-3xl leading-none">×</button>
-      </div>
-      <div class="mb-6 p-4 bg-green-50 rounded-xl">
-       <p class="text-sm font-semibold text-gray-600">Kendaraan:</p>
-       <p id="return-vehicle-name" class="text-xl font-bold text-green-700"></p>
-      </div>
-      <form id="return-form" class="space-y-6">
-       <div><label class="block text-sm font-semibold text-gray-700 mb-2">Nama Pengembali *</label> <input type="text" id="return-nama-pengembali" required class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl transition-all" placeholder="Masukkan nama Anda">
-       </div>
-       <div><label class="block text-sm font-semibold text-gray-700 mb-2">Status BBM *</label> <select id="return-bbm" required class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl transition-all"> <option value="">Pilih Status BBM</option> <option value="Penuh">Penuh</option> <option value="3/4">3/4 Tangki</option> <option value="1/2">1/2 Tangki</option> <option value="1/4">1/4 Tangki</option> <option value="Kosong">Kosong</option> </select>
-       </div>
-       <div class="flex gap-4 pt-4"><button type="button" id="cancel-return-btn" class="flex-1 py-3 px-6 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all"> Batal </button> <button type="submit" class="flex-1 btn-success text-white py-3 px-6 rounded-xl font-semibold flex items-center justify-center gap-2"> <span>Konfirmasi Kembalikan</span> </button>
-       </div>
-      </form>
-     </div>
-    </div>
-   </div><!-- Maintenance Modal -->
-   <div id="maintenance-modal" class="modal-overlay fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-4" style="z-index: 1000;">
-    <div class="modal-content bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-     <div class="p-8">
-      <div class="flex items-center justify-between mb-6">
-       <h2 class="text-3xl font-bold" style="color: #f5576c;">🔧 Kelola Jadwal Maintenance</h2><button id="close-maintenance-modal" class="text-gray-400 hover:text-gray-600 text-3xl leading-none">×</button>
-      </div>
-      <p class="text-gray-600 mb-6">Klik pada kendaraan untuk mengatur atau mengupdate jadwal maintenance</p>
-      <div id="maintenance-list" class="space-y-4"><!-- Maintenance list will be inserted here -->
-      </div>
-      <div id="empty-maintenance" class="text-center py-12 hidden">
-       <div class="text-6xl mb-4">
-        🔧
-       </div>
-       <p class="text-gray-500 font-semibold">Belum ada kendaraan</p>
-      </div>
-     </div>
-    </div>
-   </div><!-- Update Maintenance Modal -->
-   <div id="update-maintenance-modal" class="modal-overlay fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-4" style="z-index: 1001;">
-    <div class="modal-content bg-white rounded-3xl shadow-2xl max-w-2xl w-full">
-     <div class="p-8">
-      <div class="flex items-center justify-between mb-6">
-       <h2 class="text-3xl font-bold" style="color: #f5576c;">Update Jadwal Maintenance</h2><button id="close-update-maintenance-modal" class="text-gray-400 hover:text-gray-600 text-3xl leading-none">×</button>
-      </div>
-      <div class="mb-6 p-4 rounded-xl" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-       <p class="text-sm font-semibold text-white text-opacity-80">Kendaraan:</p>
-       <p id="update-maintenance-vehicle-name" class="text-xl font-bold text-white"></p>
-      </div>
-      <form id="update-maintenance-form" class="space-y-6">
-       <div><label class="block text-sm font-semibold text-gray-700 mb-2">Tanggal Maintenance Baru *</label> <input type="date" id="update-maintenance-date" required class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl transition-all">
-       </div>
-       <div class="flex gap-4 pt-4"><button type="button" id="cancel-update-maintenance-btn" class="flex-1 py-3 px-6 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all"> Batal </button> <button type="submit" class="flex-1 text-white py-3 px-6 rounded-xl font-semibold" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);"> Simpan Jadwal </button>
-       </div>
-      </form>
-     </div>
-    </div>
-   </div><!-- Admin Login Modal -->
-   <div id="admin-login-modal" class="modal-overlay fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-4" style="z-index: 1002;">
-    <div class="modal-content bg-white rounded-3xl shadow-2xl max-w-md w-full">
-     <div class="p-8">
-      <div class="text-center mb-6">
-       <div class="text-6xl mb-4">
-        🔐
-       </div>
-       <h2 class="text-3xl font-bold" style="color: #667eea;">Login Admin</h2>
-       <p class="text-gray-600 mt-2">Masukkan kredensial admin untuk melanjutkan</p>
-      </div>
-      <form id="admin-login-form" class="space-y-6">
-       <div><label class="block text-sm font-semibold text-gray-700 mb-2">Username *</label> <input type="text" id="admin-username" required class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl transition-all" placeholder="Masukkan username">
-       </div>
-       <div><label class="block text-sm font-semibold text-gray-700 mb-2">Password *</label> <input type="password" id="admin-password" required class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl transition-all" placeholder="Masukkan password">
-       </div>
-       <div id="login-error" class="hidden p-3 bg-red-50 border-2 border-red-200 rounded-xl">
-        <p class="text-red-700 font-semibold text-sm">❌ Username atau password salah</p>
-       </div>
-       <div class="flex gap-4 pt-4"><button type="button" id="cancel-login-btn" class="flex-1 py-3 px-6 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all"> Batal </button> <button type="submit" class="flex-1 btn-primary text-white py-3 px-6 rounded-xl font-semibold"> Login </button>
-       </div>
-      </form>
-     </div>
-    </div>
-   </div><!-- Report Modal -->
-   <div id="report-modal" class="modal-overlay fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-4" style="z-index: 1000;">
-    <div class="modal-content bg-white rounded-3xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
-     <div class="p-8">
-      <div class="flex items-center justify-between mb-6">
-       <h2 class="text-3xl font-bold" style="color: #4facfe;">📊 Laporan Riwayat Peminjaman</h2><button id="close-report-modal" class="text-gray-400 hover:text-gray-600 text-3xl leading-none">×</button>
-      </div><!-- Filter Section -->
-      <div class="mb-6 p-6 rounded-2xl" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
-       <h3 class="text-xl font-bold text-white mb-4">🔍 Filter Periode Laporan</h3>
-       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-        <div><label class="block text-sm font-semibold text-white mb-2">📅 Dari Tanggal</label> <input type="date" id="filter-date-from" class="w-full px-4 py-3 border-2 border-white rounded-xl transition-all bg-white text-gray-900 font-semibold">
-        </div>
-        <div><label class="block text-sm font-semibold text-white mb-2">📅 Sampai Tanggal</label> <input type="date" id="filter-date-to" class="w-full px-4 py-3 border-2 border-white rounded-xl transition-all bg-white text-gray-900 font-semibold">
-        </div>
-       </div>
-       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div><label class="block text-sm font-semibold text-white mb-2">Tahun</label> <select id="filter-year" class="w-full px-4 py-3 border-2 border-white rounded-xl transition-all bg-white text-gray-900 font-semibold"> <option value="">Semua Tahun</option> </select>
-        </div>
-        <div><label class="block text-sm font-semibold text-white mb-2">Bulan</label> <select id="filter-month" class="w-full px-4 py-3 border-2 border-white rounded-xl transition-all bg-white text-gray-900 font-semibold"> <option value="">Semua Bulan</option> <option value="0">Januari</option> <option value="1">Februari</option> <option value="2">Maret</option> <option value="3">April</option> <option value="4">Mei</option> <option value="5">Juni</option> <option value="6">Juli</option> <option value="7">Agustus</option> <option value="8">September</option> <option value="9">Oktober</option> <option value="10">November</option> <option value="11">Desember</option> </select>
-        </div>
-       </div>
-       <div class="mt-4 flex gap-3"><button id="apply-filter-btn" class="flex-1 bg-white text-cyan-600 font-bold py-3 px-6 rounded-xl hover:shadow-lg transition-all"> Terapkan Filter </button> <button id="reset-filter-btn" class="px-6 bg-white bg-opacity-20 text-white font-bold py-3 rounded-xl hover:bg-opacity-30 transition-all"> Reset </button> <button id="download-report-btn" class="px-6 bg-green-500 text-white font-bold py-3 rounded-xl hover:bg-green-600 transition-all flex items-center gap-2"> <span class="text-xl">📥</span> <span>Unduh Excel</span> </button>
-       </div>
-      </div><!-- Summary Statistics -->
-      <div id="report-summary" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6"><!-- Stats will be inserted here -->
-      </div><!-- Report Table -->
-      <div class="bg-gray-50 rounded-2xl p-6">
-       <h3 class="text-xl font-bold text-gray-900 mb-4">📋 Rincian Riwayat Peminjaman</h3>
-       <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-         <thead>
-          <tr class="border-b-2 border-gray-300">
-           <th class="text-left py-3 px-4 font-bold text-gray-700">No</th>
-           <th class="text-left py-3 px-4 font-bold text-gray-700">Kendaraan</th>
-           <th class="text-left py-3 px-4 font-bold text-gray-700">Peminjam</th>
-           <th class="text-left py-3 px-4 font-bold text-gray-700">Seksi</th>
-           <th class="text-left py-3 px-4 font-bold text-gray-700">Tujuan</th>
-           <th class="text-left py-3 px-4 font-bold text-gray-700">Tanggal Pinjam</th>
-           <th class="text-left py-3 px-4 font-bold text-gray-700">Jam Pinjam</th>
-           <th class="text-left py-3 px-4 font-bold text-gray-700">Tanggal Kembali</th>
-           <th class="text-left py-3 px-4 font-bold text-gray-700">Jam Kembali</th>
-           <th class="text-left py-3 px-4 font-bold text-gray-700">Status BBM</th>
-          </tr>
-         </thead>
-         <tbody id="report-table-body"><!-- Report rows will be inserted here -->
-         </tbody>
-        </table>
-       </div>
-       <div id="empty-report" class="text-center py-12 hidden">
-        <div class="text-6xl mb-4">
-         📊
-        </div>
-        <p class="text-gray-500 font-semibold">Belum ada riwayat peminjaman</p>
-       </div>
-      </div>
-     </div>
-    </div>
-   </div>
-  </div>
-  <script>
-    const SPREADSHEET_URL = 'https://script.google.com/macros/s/AKfycbz7sxOtMhk8OxNwvMQt2zbYocVUId7u0nFECvWVuikqSXSm381saD8-zXZ2s3JgJioDJw/exec';
-    
-    // Admin credentials
-    const ADMIN_USERNAME = 'admin';
-    const ADMIN_PASSWORD = 'admin123';
-    
-    let vehicles = [];
-    let currentVehicleId = null;
-    let currentMaintenanceVehicleId = null;
-    let isAdminLoggedIn = false;
-    
-    const defaultConfig = {
-      app_title: "🚗 Peminjaman Mobil Dinas",
-      header_subtitle: "Sistem Manajemen Kendaraan Operasional",
-      borrow_button_text: "PINJAM",
-      return_button_text: "KEMBALIKAN"
-    };
-    
-    const dataHandler = {
-      onDataChanged(data) {
-        vehicles = data;
-        renderVehicles();
-      }
-    };
-    
-    async function initializeApp() {
-      if (window.dataSdk) {
-        const result = await window.dataSdk.init(dataHandler);
-        if (!result.isOk) {
-          showToast('Gagal menginisialisasi aplikasi', 'error');
-        }
-      }
-      
-      if (window.elementSdk) {
-        window.elementSdk.init({
-          defaultConfig,
-          onConfigChange: updateUIFromConfig,
-          mapToCapabilities: () => ({
-            recolorables: [],
-            borderables: [],
-            fontEditable: undefined,
-            fontSizeable: undefined
-          }),
-          mapToEditPanelValues: (config) => new Map([
-            ['app_title', config.app_title || defaultConfig.app_title],
-            ['header_subtitle', config.header_subtitle || defaultConfig.header_subtitle],
-            ['borrow_button_text', config.borrow_button_text || defaultConfig.borrow_button_text],
-            ['return_button_text', config.return_button_text || defaultConfig.return_button_text]
-          ])
-        });
-      }
-    }
-    
-    async function updateUIFromConfig(config) {
-      const titleElement = document.getElementById('app-title');
-      const subtitleElement = document.getElementById('app-subtitle');
-      
-      if (titleElement) {
-        titleElement.textContent = config.app_title || defaultConfig.app_title;
-      }
-      if (subtitleElement) {
-        subtitleElement.textContent = config.header_subtitle || defaultConfig.header_subtitle;
-      }
-      
-      renderVehicles();
-    }
-    
-    function renderVehicles() {
-      const grid = document.getElementById('vehicles-grid');
-      const emptyState = document.getElementById('empty-state');
-      const config = window.elementSdk?.config || defaultConfig;
-      
-      if (vehicles.length === 0) {
-        grid.innerHTML = '';
-        emptyState.classList.remove('hidden');
-        return;
-      }
-      
-      emptyState.classList.add('hidden');
-      grid.innerHTML = vehicles.map(vehicle => createVehicleCard(vehicle, config)).join('');
-      
-      vehicles.forEach(vehicle => {
-        const borrowBtn = document.getElementById(`borrow-${vehicle.__backendId}`);
-        const returnBtn = document.getElementById(`return-${vehicle.__backendId}`);
-        const deleteBtn = document.getElementById(`delete-${vehicle.__backendId}`);
-        
-        if (borrowBtn) {
-          borrowBtn.addEventListener('click', () => openBorrowModal(vehicle));
-        }
-        if (returnBtn) {
-          returnBtn.addEventListener('click', () => openReturnModal(vehicle));
-        }
-        if (deleteBtn) {
-          deleteBtn.addEventListener('click', () => deleteVehicle(vehicle));
-        }
-      });
-    }
-    
-    function createVehicleCard(vehicle, config) {
-      const isAvailable = vehicle.status === 'Tersedia';
-      const isBorrowed = vehicle.status && vehicle.status.includes('Dipinjam');
-      const isKepalaKantor = vehicle.jenis_kendaraan === 'Kepala Kantor';
-      const isOperasional = vehicle.jenis_kendaraan === 'Operasional';
-      
-      let statusColor = 'bg-gray-100 text-gray-700';
-      let statusIcon = '⚪';
-      
-      if (isAvailable && isOperasional) {
-        statusColor = 'bg-green-100 text-green-700';
-        statusIcon = '🟢';
-      } else if (isBorrowed) {
-        statusColor = 'bg-red-100 text-red-700';
-        statusIcon = '🔴';
-      }
-      
-      let actionButton = '';
-      if (isAvailable && isOperasional) {
-        actionButton = `
-          <button id="borrow-${vehicle.__backendId}" class="btn-primary text-white font-bold py-3 px-6 rounded-xl w-full">
-            ${config.borrow_button_text || defaultConfig.borrow_button_text}
-          </button>
-        `;
-      } else if (isBorrowed) {
-        actionButton = `
-          <button id="return-${vehicle.__backendId}" class="btn-success text-white font-bold py-3 px-6 rounded-xl w-full">
-            ${config.return_button_text || defaultConfig.return_button_text}
-          </button>
-        `;
-      }
-      
-      let borrowInfo = '';
-      if (isBorrowed) {
-        borrowInfo = `
-          <div class="mt-4 pt-4 border-t-2 border-gray-100 space-y-2">
-            <div class="flex justify-between text-sm">
-              <span class="text-gray-600 font-medium">Peminjam:</span>
-              <span class="font-bold text-gray-900">${vehicle.nama_peminjam || '-'}</span>
-            </div>
-            <div class="flex justify-between text-sm">
-              <span class="text-gray-600 font-medium">Seksi:</span>
-              <span class="font-bold text-gray-900">${vehicle.seksi || '-'}</span>
-            </div>
-            <div class="flex justify-between text-sm">
-              <span class="text-gray-600 font-medium">Tujuan:</span>
-              <span class="font-bold text-gray-900">${vehicle.lokasi_tujuan || '-'}</span>
-            </div>
-            ${vehicle.nama_driver ? `
-            <div class="flex justify-between text-sm">
-              <span class="text-gray-600 font-medium">Driver:</span>
-              <span class="font-bold text-gray-900">${vehicle.nama_driver}</span>
-            </div>
-            ` : ''}
-            <div class="flex justify-between text-sm">
-              <span class="text-gray-600 font-medium">Tanggal Pinjam:</span>
-              <span class="font-bold text-gray-900">${vehicle.tanggal_pinjam ? new Date(vehicle.tanggal_pinjam).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}</span>
-            </div>
-            <div class="flex justify-between text-sm">
-              <span class="text-gray-600 font-medium">Jam Pinjam:</span>
-              <span class="font-bold text-gray-900">${vehicle.jam_pinjam || '-'}</span>
-            </div>
-          </div>
-        `;
-      }
-      
-      return `
-        <div class="vehicle-card bg-white rounded-2xl shadow-lg p-6">
-          <div class="flex items-start justify-between mb-4">
-            <div class="text-5xl">🚗</div>
-            <span class="status-badge ${statusColor}">
-              ${statusIcon} ${vehicle.status || 'Tersedia'}
+</head>
+<body class="h-full bg-slate-50 text-slate-900">
+  <div id="app" class="min-h-screen flex flex-col">
+    <!-- Header -->
+    <header class="bg-white border-b sticky top-0 z-20">
+      <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div>
+          <h1 class="text-2xl font-black text-indigo-900">SISTEM SURAT CLOUD</h1>
+          <div class="flex items-center gap-2">
+            <span id="syncStatus" class="flex items-center gap-1 text-[10px] text-emerald-600 font-bold uppercase">
+              <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span> Memeriksa Koneksi...
             </span>
           </div>
-          
-          <h3 class="text-2xl font-bold text-gray-900 mb-2">${vehicle.nama_kendaraan}</h3>
-          <p class="text-gray-600 font-semibold mb-4">${vehicle.jenis_kendaraan}</p>
-          
-          ${vehicle.jadwal_maintenance ? `
-          <div class="mb-4 p-3 bg-yellow-50 border-2 border-yellow-200 rounded-xl">
-            <div class="flex items-center gap-2">
-              <span class="text-lg">🔧</span>
-              <div>
-                <p class="text-xs font-semibold text-yellow-700">Tanggal Maintenance</p>
-                <p class="text-sm font-bold text-yellow-900">${new Date(vehicle.jadwal_maintenance).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-              </div>
-            </div>
-          </div>
-          ` : ''}
-          
-          ${borrowInfo}
-          
-          ${actionButton ? `<div class="mt-6">${actionButton}</div>` : ''}
-          
-          ${isKepalaKantor ? '<p class="text-center text-sm text-gray-500 font-medium mt-4">Tidak dapat dipinjam</p>' : ''}
-          
-          <button id="delete-${vehicle.__backendId}" class="mt-4 w-full py-2 px-4 text-red-600 border-2 border-red-200 rounded-xl font-semibold hover:bg-red-50 transition-all text-sm">
-            🗑️ Hapus Kendaraan
+        </div>
+        <div class="flex gap-4">
+          <button onclick="fetchAllData()" class="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg font-bold text-xs transition-all">
+            <span>🔄</span> REFRESH DATA
           </button>
         </div>
-      `;
-    }
-    
-    function showToast(message, type = 'success') {
-      const toast = document.createElement('div');
-      toast.className = 'toast';
-      toast.style.background = type === 'success' 
-        ? 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)' 
-        : 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)';
-      toast.textContent = message;
+      </div>
+    </header>
+
+    <!-- Navigasi -->
+    <nav class="bg-white border-b">
+      <div class="max-w-7xl mx-auto px-4 flex gap-8">
+        <button id="tabInput" class="tab-active py-4 px-2 font-bold text-sm">📝 INPUT</button>
+        <button id="tabRekap" class="py-4 px-2 font-bold text-sm text-slate-500">📋 REKAP CLOUD</button>
+        <button id="tabLaporan" class="py-4 px-2 font-bold text-sm text-slate-500">📊 LAPORAN</button>
+      </div>
+    </nav>
+
+    <!-- Konten -->
+    <main class="flex-grow max-w-7xl mx-auto w-full px-4 py-8">
       
-      document.body.appendChild(toast);
-      
-      setTimeout(() => {
-        toast.style.animation = 'slideInRight 0.3s ease-out reverse';
-        setTimeout(() => toast.remove(), 300);
-      }, 3000);
-    }
-    
-    async function sendToSpreadsheet(data) {
-      try {
-        // Prepare data in the exact format needed
-        const spreadsheetData = {
-          Nama_Kendaraan: data.nama_kendaraan,
-          Jenis_Kendaraan: data.jenis_kendaraan,
-          Status: data.status,
-          Nama_Peminjam: data.nama_peminjam || '',
-          Seksi: data.seksi || '',
-          Lokasi_Tujuan: data.lokasi_tujuan || '',
-          Nama_Driver: data.nama_driver || '',
-          Tanggal_Pinjam: data.tanggal_pinjam || '',
-          Jam_Pinjam: data.jam_pinjam || '',
-          Nama_Pengembali: data.nama_pengembali || '',
-          Tanggal_Kembali: data.tanggal_kembali || '',
-          Jam_Selesai: data.jam_selesai || '',
-          BBM: data.bbm || '',
-          Jadwal_Maintenance: data.jadwal_maintenance || ''
-        };
-        
-        const response = await fetch(SPREADSHEET_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(spreadsheetData)
-        });
-        
-        // Note: no-cors mode means we can't read the response, but the data is sent
-        return true;
-      } catch (error) {
-        console.error('Error sending to spreadsheet:', error);
-        // Still return true as the error might be CORS-related but data may have been sent
-        return true;
-      }
-    }
-    
-    async function deleteVehicle(vehicle) {
-      if (!isAdminLoggedIn) {
-        showToast('Hanya admin yang dapat menghapus kendaraan', 'error');
-        return;
-      }
-      
-      const deleteBtn = document.getElementById(`delete-${vehicle.__backendId}`);
-      const originalText = deleteBtn.innerHTML;
-      
-      // First click - show confirmation
-      if (!deleteBtn.dataset.confirming) {
-        deleteBtn.dataset.confirming = 'true';
-        deleteBtn.innerHTML = '⚠️ Klik Lagi untuk Konfirmasi';
-        deleteBtn.style.background = 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)';
-        deleteBtn.style.color = 'white';
-        deleteBtn.style.borderColor = 'transparent';
-        
-        setTimeout(() => {
-          if (deleteBtn.dataset.confirming) {
-            delete deleteBtn.dataset.confirming;
-            deleteBtn.innerHTML = originalText;
-            deleteBtn.style.background = '';
-            deleteBtn.style.color = '';
-            deleteBtn.style.borderColor = '';
-          }
-        }, 3000);
-        return;
-      }
-      
-      // Second click - delete
-      delete deleteBtn.dataset.confirming;
-      deleteBtn.disabled = true;
-      deleteBtn.innerHTML = '<div class="loading-spinner mx-auto" style="border-color: rgba(239, 68, 68, 0.3); border-top-color: rgb(239, 68, 68);"></div>';
-      
-      const result = await window.dataSdk.delete(vehicle);
-      
-      if (result.isOk) {
-        showToast('Kendaraan berhasil dihapus!', 'success');
-      } else {
-        showToast('Gagal menghapus kendaraan', 'error');
-        deleteBtn.disabled = false;
-        deleteBtn.innerHTML = originalText;
-      }
-    }
-    
-    function openBorrowModal(vehicle) {
-      currentVehicleId = vehicle.__backendId;
-      document.getElementById('borrow-vehicle-name').textContent = vehicle.nama_kendaraan;
-      document.getElementById('borrow-modal').classList.remove('hidden');
-      document.getElementById('borrow-modal').classList.add('flex');
-      document.getElementById('borrow-nama-peminjam').value = '';
-      document.getElementById('borrow-seksi').value = '';
-      document.getElementById('borrow-lokasi').value = '';
-      document.getElementById('borrow-driver').value = '';
-    }
-    
-    function closeBorrowModal() {
-      document.getElementById('borrow-modal').classList.add('hidden');
-      document.getElementById('borrow-modal').classList.remove('flex');
-      currentVehicleId = null;
-    }
-    
-    function openReturnModal(vehicle) {
-      currentVehicleId = vehicle.__backendId;
-      document.getElementById('return-vehicle-name').textContent = vehicle.nama_kendaraan;
-      document.getElementById('return-modal').classList.remove('hidden');
-      document.getElementById('return-modal').classList.add('flex');
-      document.getElementById('return-nama-pengembali').value = '';
-      document.getElementById('return-bbm').value = '';
-    }
-    
-    function closeReturnModal() {
-      document.getElementById('return-modal').classList.add('hidden');
-      document.getElementById('return-modal').classList.remove('flex');
-      currentVehicleId = null;
-    }
-    
-    function openAdminLoginModal(action) {
-      document.getElementById('admin-login-modal').dataset.action = action;
-      document.getElementById('admin-login-modal').classList.remove('hidden');
-      document.getElementById('admin-login-modal').classList.add('flex');
-      document.getElementById('admin-login-form').reset();
-      document.getElementById('login-error').classList.add('hidden');
-    }
-    
-    function closeAdminLoginModal() {
-      document.getElementById('admin-login-modal').classList.add('hidden');
-      document.getElementById('admin-login-modal').classList.remove('flex');
-    }
-    
-    function showAdminMenu() {
-      document.getElementById('login-menu-btn').parentElement.classList.add('hidden');
-      document.getElementById('admin-menu').classList.remove('hidden');
-      document.getElementById('admin-menu').classList.add('flex');
-    }
-    
-    function hideAdminMenu() {
-      document.getElementById('login-menu-btn').parentElement.classList.remove('hidden');
-      document.getElementById('admin-menu').classList.add('hidden');
-      document.getElementById('admin-menu').classList.remove('flex');
-    }
-    
-    function logout() {
-      isAdminLoggedIn = false;
-      hideAdminMenu();
-      showToast('Logout berhasil!', 'success');
-    }
-    
-    function checkAdminAccess(action) {
-      if (isAdminLoggedIn) {
-        executeAdminAction(action);
-      } else {
-        openAdminLoginModal(action);
-      }
-    }
-    
-    function executeAdminAction(action) {
-      switch(action) {
-        case 'add':
-          openAddModal();
-          break;
-        case 'maintenance':
-          openMaintenanceModal();
-          break;
-        case 'report':
-          openReportModal();
-          break;
-      }
-    }
-    
-    function openAddModal() {
-      document.getElementById('add-modal').classList.remove('hidden');
-      document.getElementById('add-modal').classList.add('flex');
-      document.getElementById('add-vehicle-form').reset();
-    }
-    
-    function closeAddModal() {
-      document.getElementById('add-modal').classList.add('hidden');
-      document.getElementById('add-modal').classList.remove('flex');
-    }
-    
-    function openMaintenanceModal() {
-      document.getElementById('maintenance-modal').classList.remove('hidden');
-      document.getElementById('maintenance-modal').classList.add('flex');
-      renderMaintenanceList();
-    }
-    
-    function closeMaintenanceModal() {
-      document.getElementById('maintenance-modal').classList.add('hidden');
-      document.getElementById('maintenance-modal').classList.remove('flex');
-    }
-    
-    function renderMaintenanceList() {
-      const list = document.getElementById('maintenance-list');
-      const emptyState = document.getElementById('empty-maintenance');
-      
-      if (vehicles.length === 0) {
-        list.innerHTML = '';
-        emptyState.classList.remove('hidden');
-        return;
-      }
-      
-      emptyState.classList.add('hidden');
-      list.innerHTML = vehicles.map(vehicle => {
-        const maintenanceDate = vehicle.jadwal_maintenance 
-          ? new Date(vehicle.jadwal_maintenance).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
-          : 'Belum dijadwalkan';
-        
-        const maintenanceBadge = vehicle.jadwal_maintenance
-          ? '<span class="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-sm font-semibold">🔧 Terjadwal</span>'
-          : '<span class="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-sm font-semibold">Belum dijadwalkan</span>';
-        
-        return `
-          <div class="maintenance-item p-5 border-2 border-gray-200 rounded-2xl hover:border-purple-300 hover:shadow-lg transition-all cursor-pointer" data-vehicle-id="${vehicle.__backendId}">
-            <div class="flex items-center justify-between">
-              <div class="flex-1">
-                <h3 class="text-xl font-bold text-gray-900 mb-1">${vehicle.nama_kendaraan}</h3>
-                <p class="text-sm text-gray-600 mb-2">${vehicle.jenis_kendaraan}</p>
-                ${maintenanceBadge}
+      <!-- TAB 1: INPUT -->
+      <section id="contentInput" class="tab-content">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 max-w-2xl mx-auto overflow-hidden">
+          <div class="p-6 border-b bg-slate-50/50">
+            <h2 class="font-bold text-slate-700">Input Pengiriman Surat Baru</h2>
+          </div>
+          <form id="formPengiriman" class="p-8 space-y-6">
+             <div class="grid grid-cols-2 gap-4">
+              <div class="space-y-1">
+                <label class="text-[10px] font-black uppercase text-slate-400">Nomor Surat</label>
+                <input type="text" id="nomorSurat" required class="w-full px-4 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Contoh: 001/ADM/2026">
               </div>
-              <div class="text-right">
-                <p class="text-sm text-gray-600 mb-1">Tanggal Maintenance:</p>
-                <p class="text-lg font-bold text-gray-900">${maintenanceDate}</p>
+              <div class="space-y-1">
+                <label class="text-[10px] font-black uppercase text-slate-400">Tanggal Kirim</label>
+                <input type="date" id="tanggalKirim" required class="w-full px-4 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
               </div>
             </div>
-          </div>
-        `;
-      }).join('');
-      
-      // Add click listeners
-      document.querySelectorAll('.maintenance-item').forEach(item => {
-        item.addEventListener('click', () => {
-          const vehicleId = item.dataset.vehicleId;
-          const vehicle = vehicles.find(v => v.__backendId === vehicleId);
-          if (vehicle) {
-            openUpdateMaintenanceModal(vehicle);
-          }
-        });
-      });
-    }
-    
-    function openUpdateMaintenanceModal(vehicle) {
-      currentMaintenanceVehicleId = vehicle.__backendId;
-      document.getElementById('update-maintenance-vehicle-name').textContent = vehicle.nama_kendaraan;
-      document.getElementById('update-maintenance-date').value = vehicle.jadwal_maintenance || '';
-      document.getElementById('update-maintenance-modal').classList.remove('hidden');
-      document.getElementById('update-maintenance-modal').classList.add('flex');
-    }
-    
-    function closeUpdateMaintenanceModal() {
-      document.getElementById('update-maintenance-modal').classList.add('hidden');
-      document.getElementById('update-maintenance-modal').classList.remove('flex');
-      currentMaintenanceVehicleId = null;
-    }
-    
-    let currentFilter = {
-      year: '',
-      month: '',
-      dateFrom: '',
-      dateTo: ''
-    };
-    
-    function openReportModal() {
-      document.getElementById('report-modal').classList.remove('hidden');
-      document.getElementById('report-modal').classList.add('flex');
-      populateYearFilter();
-      renderReport();
-    }
-    
-    function closeReportModal() {
-      document.getElementById('report-modal').classList.add('hidden');
-      document.getElementById('report-modal').classList.remove('flex');
-    }
-    
-    function populateYearFilter() {
-      const yearSelect = document.getElementById('filter-year');
-      const years = new Set();
-      
-      vehicles.forEach(vehicle => {
-        if (vehicle.tanggal_pinjam) {
-          const year = new Date(vehicle.tanggal_pinjam).getFullYear();
-          years.add(year);
-        }
-      });
-      
-      const sortedYears = Array.from(years).sort((a, b) => b - a);
-      yearSelect.innerHTML = '<option value="">Semua Tahun</option>' + 
-        sortedYears.map(year => `<option value="${year}">${year}</option>`).join('');
-    }
-    
-    function applyReportFilter() {
-      currentFilter.year = document.getElementById('filter-year').value;
-      currentFilter.month = document.getElementById('filter-month').value;
-      currentFilter.dateFrom = document.getElementById('filter-date-from').value;
-      currentFilter.dateTo = document.getElementById('filter-date-to').value;
-      renderReport();
-    }
-    
-    function resetReportFilter() {
-      currentFilter = { year: '', month: '', dateFrom: '', dateTo: '' };
-      document.getElementById('filter-year').value = '';
-      document.getElementById('filter-month').value = '';
-      document.getElementById('filter-date-from').value = '';
-      document.getElementById('filter-date-to').value = '';
-      renderReport();
-    }
-    
-    function downloadReport() {
-      const filteredVehicles = vehicles.filter(filterVehicleHistory);
-      
-      if (filteredVehicles.length === 0) {
-        showToast('Tidak ada data untuk diunduh', 'error');
-        return;
-      }
-      
-      // Create CSV content
-      let csvContent = '\ufeff'; // UTF-8 BOM for Excel compatibility
-      
-      // Add header with filter info
-      let filterInfo = 'Laporan Riwayat Peminjaman Kendaraan\n';
-      if (currentFilter.dateFrom || currentFilter.dateTo) {
-        if (currentFilter.dateFrom && currentFilter.dateTo) {
-          filterInfo += `Periode: ${new Date(currentFilter.dateFrom).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })} - ${new Date(currentFilter.dateTo).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}\n`;
-        } else if (currentFilter.dateFrom) {
-          filterInfo += `Dari Tanggal: ${new Date(currentFilter.dateFrom).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}\n`;
-        } else if (currentFilter.dateTo) {
-          filterInfo += `Sampai Tanggal: ${new Date(currentFilter.dateTo).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}\n`;
-        }
-      } else {
-        if (currentFilter.year) filterInfo += `Tahun: ${currentFilter.year}\n`;
-        if (currentFilter.month !== '') {
-          const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-          filterInfo += `Bulan: ${monthNames[parseInt(currentFilter.month)]}\n`;
-        }
-      }
-      filterInfo += `Tanggal Unduh: ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}\n\n`;
-      csvContent += filterInfo;
-      
-      // Add summary statistics
-      const totalPeminjaman = filteredVehicles.filter(v => v.tanggal_pinjam).length;
-      const selesaiDikembalikan = filteredVehicles.filter(v => v.tanggal_kembali).length;
-      const sedangDipinjam = filteredVehicles.filter(v => v.tanggal_pinjam && !v.tanggal_kembali).length;
-      
-      csvContent += 'RINGKASAN STATISTIK\n';
-      csvContent += `Total Peminjaman,${totalPeminjaman}\n`;
-      csvContent += `Selesai Dikembalikan,${selesaiDikembalikan}\n`;
-      csvContent += `Sedang Dipinjam,${sedangDipinjam}\n\n`;
-      
-      // Add table headers
-      csvContent += 'RINCIAN RIWAYAT PEMINJAMAN\n';
-      const headers = [
-        'No',
-        'Nama Kendaraan',
-        'Jenis Kendaraan',
-        'Nama Peminjam',
-        'Seksi',
-        'Lokasi Tujuan',
-        'Nama Driver',
-        'Tanggal Pinjam',
-        'Jam Pinjam',
-        'Nama Pengembali',
-        'Tanggal Kembali',
-        'Jam Kembali',
-        'Status BBM'
-      ];
-      csvContent += headers.join(',') + '\n';
-      
-      // Add data rows
-      filteredVehicles.forEach((vehicle, index) => {
-        const tanggalPinjam = vehicle.tanggal_pinjam 
-          ? new Date(vehicle.tanggal_pinjam).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
-          : '-';
-        const tanggalKembali = vehicle.tanggal_kembali
-          ? new Date(vehicle.tanggal_kembali).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
-          : '-';
-        
-        const row = [
-          index + 1,
-          `"${vehicle.nama_kendaraan || '-'}"`,
-          `"${vehicle.jenis_kendaraan || '-'}"`,
-          `"${vehicle.nama_peminjam || '-'}"`,
-          `"${vehicle.seksi || '-'}"`,
-          `"${vehicle.lokasi_tujuan || '-'}"`,
-          `"${vehicle.nama_driver || '-'}"`,
-          tanggalPinjam,
-          vehicle.jam_pinjam || '-',
-          `"${vehicle.nama_pengembali || '-'}"`,
-          tanggalKembali,
-          vehicle.jam_selesai || '-',
-          `"${vehicle.bbm || '-'}"`
-        ];
-        csvContent += row.join(',') + '\n';
-      });
-      
-      // Create blob and download
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      
-      const filename = `Laporan_Peminjaman_${new Date().toISOString().split('T')[0]}.csv`;
-      link.setAttribute('href', url);
-      link.setAttribute('download', filename);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      showToast('Laporan berhasil diunduh!', 'success');
-    }
-    
-    function filterVehicleHistory(vehicle) {
-      if (!vehicle.tanggal_pinjam) return false;
-      
-      const pinjamDate = new Date(vehicle.tanggal_pinjam);
-      pinjamDate.setHours(0, 0, 0, 0); // Reset time for accurate date comparison
-      
-      // Filter by date range (dari tanggal - sampai tanggal)
-      if (currentFilter.dateFrom || currentFilter.dateTo) {
-        if (currentFilter.dateFrom && currentFilter.dateTo) {
-          const fromDate = new Date(currentFilter.dateFrom);
-          const toDate = new Date(currentFilter.dateTo);
-          fromDate.setHours(0, 0, 0, 0);
-          toDate.setHours(23, 59, 59, 999);
-          
-          if (pinjamDate < fromDate || pinjamDate > toDate) {
-            return false;
-          }
-        } else if (currentFilter.dateFrom) {
-          const fromDate = new Date(currentFilter.dateFrom);
-          fromDate.setHours(0, 0, 0, 0);
-          
-          if (pinjamDate < fromDate) {
-            return false;
-          }
-        } else if (currentFilter.dateTo) {
-          const toDate = new Date(currentFilter.dateTo);
-          toDate.setHours(23, 59, 59, 999);
-          
-          if (pinjamDate > toDate) {
-            return false;
-          }
-        }
-        
-        return true;
-      }
-      
-      // Filter by year
-      if (currentFilter.year) {
-        if (pinjamDate.getFullYear() !== parseInt(currentFilter.year)) {
-          return false;
-        }
-      }
-      
-      // Filter by month
-      if (currentFilter.month !== '') {
-        if (pinjamDate.getMonth() !== parseInt(currentFilter.month)) {
-          return false;
-        }
-      }
-      
-      return true;
-    }
-    
-    function renderReport() {
-      const filteredVehicles = vehicles.filter(filterVehicleHistory);
-      const tableBody = document.getElementById('report-table-body');
-      const emptyState = document.getElementById('empty-report');
-      const summaryContainer = document.getElementById('report-summary');
-      
-      if (filteredVehicles.length === 0) {
-        tableBody.innerHTML = '';
-        emptyState.classList.remove('hidden');
-      } else {
-        emptyState.classList.add('hidden');
-        tableBody.innerHTML = filteredVehicles.map((vehicle, index) => {
-          const tanggalPinjam = vehicle.tanggal_pinjam 
-            ? new Date(vehicle.tanggal_pinjam).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
-            : '-';
-          const tanggalKembali = vehicle.tanggal_kembali
-            ? new Date(vehicle.tanggal_kembali).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
-            : '-';
-          
-          return `
-            <tr class="border-b border-gray-200 hover:bg-white transition-all">
-              <td class="py-3 px-4 font-semibold text-gray-700">${index + 1}</td>
-              <td class="py-3 px-4 font-semibold text-gray-900">${vehicle.nama_kendaraan}</td>
-              <td class="py-3 px-4 text-gray-700">${vehicle.nama_peminjam || '-'}</td>
-              <td class="py-3 px-4 text-gray-700">${vehicle.seksi || '-'}</td>
-              <td class="py-3 px-4 text-gray-700">${vehicle.lokasi_tujuan || '-'}</td>
-              <td class="py-3 px-4 text-gray-700">${tanggalPinjam}</td>
-              <td class="py-3 px-4 text-gray-700">${vehicle.jam_pinjam || '-'}</td>
-              <td class="py-3 px-4 text-gray-700">${tanggalKembali}</td>
-              <td class="py-3 px-4 text-gray-700">${vehicle.jam_selesai || '-'}</td>
-              <td class="py-3 px-4">
-                ${vehicle.bbm ? `<span class="px-2 py-1 bg-green-100 text-green-700 rounded-lg text-xs font-semibold">${vehicle.bbm}</span>` : '-'}
-              </td>
-            </tr>
-          `;
-        }).join('');
-      }
-      
-      // Calculate statistics
-      const totalPeminjaman = filteredVehicles.filter(v => v.tanggal_pinjam).length;
-      const selesaiDikembalikan = filteredVehicles.filter(v => v.tanggal_kembali).length;
-      const sedangDipinjam = filteredVehicles.filter(v => v.tanggal_pinjam && !v.tanggal_kembali).length;
-      
-      summaryContainer.innerHTML = `
-        <div class="bg-white rounded-2xl p-6 shadow-lg border-2 border-blue-100">
-          <div class="flex items-center gap-3 mb-2">
-            <span class="text-3xl">📊</span>
-            <span class="text-sm font-semibold text-gray-600">Total Peminjaman</span>
-          </div>
-          <p class="text-4xl font-bold text-blue-600">${totalPeminjaman}</p>
+            <div class="space-y-1">
+              <label class="text-[10px] font-black uppercase text-slate-400">Instansi Tujuan</label>
+              <textarea id="alamatTujuan" required rows="3" class="w-full px-4 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Masukkan nama instansi dan alamat..."></textarea>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="space-y-1">
+                <label class="text-[10px] font-black uppercase text-slate-400">Jumlah Surat</label>
+                <input type="number" id="jumlahSurat" required value="1" min="1" class="w-full px-4 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+              </div>
+              <div class="space-y-1">
+                <label class="text-[10px] font-black uppercase text-slate-400">Nama Pengirim</label>
+                <input type="text" id="namaPengirim" required class="w-full px-4 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+              </div>
+            </div>
+            <button type="submit" id="submitBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg transition-all">
+              SIMPAN & SINKRON KE CLOUD
+            </button>
+          </form>
         </div>
-        <div class="bg-white rounded-2xl p-6 shadow-lg border-2 border-green-100">
-          <div class="flex items-center gap-3 mb-2">
-            <span class="text-3xl">✅</span>
-            <span class="text-sm font-semibold text-gray-600">Selesai Dikembalikan</span>
+      </section>
+
+      <!-- TAB 2: REKAP -->
+      <section id="contentRekap" class="tab-content hidden">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div class="p-4 border-b bg-slate-50/50 flex items-center gap-4">
+            <div class="relative flex-grow">
+              <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">🔍</span>
+              <input type="text" id="searchBox" class="w-full pl-10 px-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Cari data (Resi, No Surat, Tujuan)...">
+            </div>
           </div>
-          <p class="text-4xl font-bold text-green-600">${selesaiDikembalikan}</p>
-        </div>
-        <div class="bg-white rounded-2xl p-6 shadow-lg border-2 border-orange-100">
-          <div class="flex items-center gap-3 mb-2">
-            <span class="text-3xl">🚗</span>
-            <span class="text-sm font-semibold text-gray-600">Sedang Dipinjam</span>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left">
+              <thead>
+                <tr class="text-[10px] font-black uppercase text-slate-400 border-b">
+                  <th class="px-6 py-4">Resi</th>
+                  <th class="px-6 py-4">No Surat</th>
+                  <th class="px-6 py-4">Tanggal</th>
+                  <th class="px-6 py-4">Tujuan</th>
+                  <th class="px-6 py-4">Status</th>
+                </tr>
+              </thead>
+              <tbody id="rekapTableBody" class="divide-y text-sm">
+                <tr><td colspan="5" class="p-10 text-center text-slate-400 italic">Menghubungkan ke Google Sheets...</td></tr>
+              </tbody>
+            </table>
           </div>
-          <p class="text-4xl font-bold text-orange-600">${sedangDipinjam}</p>
         </div>
-      `;
+      </section>
+
+      <!-- TAB 3: LAPORAN -->
+      <section id="contentLaporan" class="tab-content hidden">
+         <div class="bg-white p-10 rounded-2xl border border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400">
+           <span class="text-4xl mb-4">📊</span>
+           <p class="font-medium text-slate-600">Fitur Laporan Cloud</p>
+           <p class="text-sm">Data laporan akan ditarik langsung dari database Spreadsheet Anda.</p>
+         </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script>
+    // URL SCRIPT BARU YANG ANDA BERIKAN
+    const SPREADSHEET_URL = "https://script.google.com/macros/s/AKfycby2-tQBfdDfSOnLqLCKNM2oZtRNO_-wEjNbUnnp-dNiLCF21hsy9Kc0ut3hsXmcDOg/exec";
+    
+    let db = []; 
+
+    function toast(msg, color='indigo') {
+      const t = document.createElement('div');
+      t.className = `toast ${color === 'indigo' ? 'bg-indigo-600' : 'bg-red-600'}`;
+      t.innerText = msg;
+      document.body.appendChild(t);
+      setTimeout(() => t.remove(), 3000);
     }
-    
-    document.getElementById('login-menu-btn').addEventListener('click', () => checkAdminAccess('menu'));
-    document.getElementById('logout-btn').addEventListener('click', logout);
-    
-    document.getElementById('add-vehicle-btn').addEventListener('click', () => openAddModal());
-    document.getElementById('close-add-modal').addEventListener('click', closeAddModal);
-    document.getElementById('cancel-add-btn').addEventListener('click', closeAddModal);
-    
-    document.getElementById('maintenance-menu-btn').addEventListener('click', () => openMaintenanceModal());
-    document.getElementById('close-maintenance-modal').addEventListener('click', closeMaintenanceModal);
-    
-    document.getElementById('report-menu-btn').addEventListener('click', () => openReportModal());
-    document.getElementById('close-report-modal').addEventListener('click', closeReportModal);
-    
-    document.getElementById('cancel-login-btn').addEventListener('click', closeAdminLoginModal);
-    
-    document.getElementById('admin-login-form').addEventListener('submit', (e) => {
-      e.preventDefault();
+
+    // FUNGSI UTAMA: Fetch Data dari Cloud
+    async function fetchAllData() {
+      const status = document.getElementById('syncStatus');
+      const tableBody = document.getElementById('rekapTableBody');
       
-      const username = document.getElementById('admin-username').value;
-      const password = document.getElementById('admin-password').value;
+      status.innerHTML = `<span class="loader"></span> MENYINKRONKAN...`;
       
-      if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-        isAdminLoggedIn = true;
-        const action = document.getElementById('admin-login-modal').dataset.action;
-        closeAdminLoginModal();
+      try {
+        const response = await fetch(`${SPREADSHEET_URL}?action=read&t=${Date.now()}`);
+        const result = await response.json();
         
-        if (action === 'menu') {
-          showAdminMenu();
-          showToast('Login berhasil! Selamat datang Admin', 'success');
+        if (result.status === "success") {
+          db = result.data;
+          renderRekap();
+          status.innerHTML = `<span class="w-2 h-2 bg-emerald-500 rounded-full"></span> Sinkron: ${db.length} Data Cloud`;
         } else {
-          executeAdminAction(action);
-          showToast('Login berhasil! Selamat datang Admin', 'success');
+          throw new Error("Gagal mengambil data");
         }
-      } else {
-        document.getElementById('login-error').classList.remove('hidden');
-        document.getElementById('admin-password').value = '';
+      } catch (err) {
+        console.error("Fetch error:", err);
+        status.innerHTML = `<span class="w-2 h-2 bg-red-500 rounded-full"></span> Offline / Error`;
+        tableBody.innerHTML = `<tr><td colspan="5" class="p-10 text-center text-red-400 italic">Gagal memuat data. Periksa URL Apps Script Anda.</td></tr>`;
       }
+    }
+
+    // Tab Navigation
+    const tabs = ['Input', 'Rekap', 'Laporan'];
+    tabs.forEach(t => {
+      document.getElementById(`tab${t}`).onclick = () => {
+        tabs.forEach(x => {
+          document.getElementById(`tab${x}`).classList.remove('tab-active');
+          document.getElementById(`content${x}`).classList.add('hidden');
+        });
+        document.getElementById(`tab${t}`).classList.add('tab-active');
+        document.getElementById(`content${t}`).classList.remove('hidden');
+        if(t === 'Rekap') fetchAllData();
+      };
     });
-    
-    document.getElementById('apply-filter-btn').addEventListener('click', applyReportFilter);
-    document.getElementById('reset-filter-btn').addEventListener('click', resetReportFilter);
-    document.getElementById('download-report-btn').addEventListener('click', downloadReport);
-    
-    document.getElementById('close-update-maintenance-modal').addEventListener('click', closeUpdateMaintenanceModal);
-    document.getElementById('cancel-update-maintenance-btn').addEventListener('click', closeUpdateMaintenanceModal);
-    
-    document.getElementById('close-borrow-modal').addEventListener('click', closeBorrowModal);
-    document.getElementById('cancel-borrow-btn').addEventListener('click', closeBorrowModal);
-    
-    document.getElementById('close-return-modal').addEventListener('click', closeReturnModal);
-    document.getElementById('cancel-return-btn').addEventListener('click', closeReturnModal);
-    
-    document.getElementById('add-vehicle-form').addEventListener('submit', async (e) => {
+
+    // Submit ke Cloud
+    document.getElementById('formPengiriman').onsubmit = async (e) => {
       e.preventDefault();
-      
-      if (vehicles.length >= 999) {
-        showToast('Maksimum 999 kendaraan tercapai. Hapus beberapa kendaraan terlebih dahulu.', 'error');
+      const btn = document.getElementById('submitBtn');
+      btn.disabled = true; 
+      btn.innerHTML = `<span class="loader"></span> MENGIRIM DATA...`;
+
+      const entry = {
+        action: "insert",
+        id: Date.now(),
+        resi: "RSI-" + Math.random().toString(36).substr(2, 6).toUpperCase(),
+        no_surat: document.getElementById('nomorSurat').value,
+        tanggal: document.getElementById('tanggalKirim').value,
+        tujuan: document.getElementById('alamatTujuan').value,
+        jumlah: document.getElementById('jumlahSurat').value,
+        pengirim: document.getElementById('namaPengirim').value,
+        status: "Terkirim"
+      };
+
+      try {
+        await fetch(SPREADSHEET_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          body: JSON.stringify(entry)
+        });
+        
+        toast("✓ Data Berhasil Disimpan di Cloud");
+        e.target.reset();
+        document.getElementById('tanggalKirim').valueAsDate = new Date();
+        
+        // Refresh data setelah beberapa detik
+        setTimeout(fetchAllData, 1500); 
+      } catch (err) {
+        console.error(err);
+        toast("Gagal menyimpan ke Cloud", "red");
+      } finally {
+        btn.disabled = false; 
+        btn.innerText = "SIMPAN & SINKRON KE CLOUD";
+      }
+    };
+
+    function renderRekap(filterData = db) {
+      const body = document.getElementById('rekapTableBody');
+      if (filterData.length === 0) {
+        body.innerHTML = `<tr><td colspan="5" class="p-10 text-center text-slate-400">Tidak ada data ditemukan di database cloud.</td></tr>`;
         return;
       }
-      
-      const submitBtn = e.target.querySelector('button[type="submit"]');
-      const originalText = submitBtn.innerHTML;
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = '<div class="loading-spinner mx-auto"></div>';
-      
-      const vehicleData = {
-        id: Date.now().toString(),
-        nama_kendaraan: document.getElementById('add-nama-kendaraan').value,
-        jenis_kendaraan: document.getElementById('add-jenis-kendaraan').value,
-        status: 'Tersedia',
-        nama_peminjam: '',
-        seksi: '',
-        lokasi_tujuan: '',
-        nama_driver: '',
-        tanggal_pinjam: '',
-        jam_pinjam: '',
-        nama_pengembali: '',
-        tanggal_kembali: '',
-        jam_selesai: '',
-        bbm: '',
-        jadwal_maintenance: document.getElementById('add-maintenance').value || '',
-        created_at: new Date().toISOString()
-      };
-      
-      const result = await window.dataSdk.create(vehicleData);
-      
-      if (result.isOk) {
-        await sendToSpreadsheet(vehicleData);
-        showToast('Kendaraan berhasil ditambahkan!', 'success');
-        closeAddModal();
-      } else {
-        showToast('Gagal menambahkan kendaraan', 'error');
-      }
-      
-      submitBtn.disabled = false;
-      submitBtn.innerHTML = originalText;
-    });
-    
-    document.getElementById('borrow-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      
-      const vehicle = vehicles.find(v => v.__backendId === currentVehicleId);
-      if (!vehicle) return;
-      
-      const submitBtn = e.target.querySelector('button[type="submit"]');
-      const originalText = submitBtn.innerHTML;
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = '<div class="loading-spinner mx-auto"></div>';
-      
-      const now = new Date();
-      const jamPinjam = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-      const tanggalPinjam = now.toISOString();
-      
-      const updatedVehicle = {
-        ...vehicle,
-        status: `Dipinjam oleh ${document.getElementById('borrow-nama-peminjam').value}`,
-        nama_peminjam: document.getElementById('borrow-nama-peminjam').value,
-        seksi: document.getElementById('borrow-seksi').value,
-        lokasi_tujuan: document.getElementById('borrow-lokasi').value,
-        nama_driver: document.getElementById('borrow-driver').value,
-        tanggal_pinjam: tanggalPinjam,
-        jam_pinjam: jamPinjam,
-        nama_pengembali: '',
-        tanggal_kembali: '',
-        jam_selesai: '',
-        bbm: ''
-      };
-      
-      const result = await window.dataSdk.update(updatedVehicle);
-      
-      if (result.isOk) {
-        await sendToSpreadsheet(updatedVehicle);
-        showToast('Kendaraan berhasil dipinjam!', 'success');
-        closeBorrowModal();
-      } else {
-        showToast('Gagal meminjam kendaraan', 'error');
-      }
-      
-      submitBtn.disabled = false;
-      submitBtn.innerHTML = originalText;
-    });
-    
-    document.getElementById('return-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      
-      const vehicle = vehicles.find(v => v.__backendId === currentVehicleId);
-      if (!vehicle) return;
-      
-      const submitBtn = e.target.querySelector('button[type="submit"]');
-      const originalText = submitBtn.innerHTML;
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = '<div class="loading-spinner mx-auto"></div>';
-      
-      const now = new Date();
-      const jamSelesai = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-      const tanggalKembali = now.toISOString();
-      
-      const updatedVehicle = {
-        ...vehicle,
-        status: 'Tersedia',
-        nama_pengembali: document.getElementById('return-nama-pengembali').value,
-        tanggal_kembali: tanggalKembali,
-        jam_selesai: jamSelesai,
-        bbm: document.getElementById('return-bbm').value
-      };
-      
-      const result = await window.dataSdk.update(updatedVehicle);
-      
-      if (result.isOk) {
-        await sendToSpreadsheet(updatedVehicle);
-        showToast('Kendaraan berhasil dikembalikan!', 'success');
-        closeReturnModal();
-      } else {
-        showToast('Gagal mengembalikan kendaraan', 'error');
-      }
-      
-      submitBtn.disabled = false;
-      submitBtn.innerHTML = originalText;
-    });
-    
-    document.getElementById('update-maintenance-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      
-      const vehicle = vehicles.find(v => v.__backendId === currentMaintenanceVehicleId);
-      if (!vehicle) return;
-      
-      const submitBtn = e.target.querySelector('button[type="submit"]');
-      const originalText = submitBtn.innerHTML;
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = '<div class="loading-spinner mx-auto"></div>';
-      
-      const updatedVehicle = {
-        ...vehicle,
-        jadwal_maintenance: document.getElementById('update-maintenance-date').value
-      };
-      
-      const result = await window.dataSdk.update(updatedVehicle);
-      
-      if (result.isOk) {
-        await sendToSpreadsheet(updatedVehicle);
-        showToast('Jadwal maintenance berhasil diupdate!', 'success');
-        closeUpdateMaintenanceModal();
-        renderMaintenanceList();
-      } else {
-        showToast('Gagal mengupdate jadwal maintenance', 'error');
-      }
-      
-      submitBtn.disabled = false;
-      submitBtn.innerHTML = originalText;
-    });
-    
-    initializeApp();
+
+      const sortedData = [...filterData].reverse();
+
+      body.innerHTML = sortedData.map(item => `
+        <tr class="hover:bg-slate-50 transition-colors">
+          <td class="px-6 py-4 font-mono font-bold text-indigo-600">${item.resi || '-'}</td>
+          <td class="px-6 py-4 font-medium">${item.no_surat || '-'}</td>
+          <td class="px-6 py-4 text-slate-500">${item.tanggal || '-'}</td>
+          <td class="px-6 py-4 max-w-xs truncate text-slate-600">${item.tujuan || '-'}</td>
+          <td class="px-6 py-4">
+             <span class="px-2 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 uppercase tracking-tighter">TERKIRIM</span>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    // Search Filter
+    document.getElementById('searchBox').oninput = (e) => {
+      const q = e.target.value.toLowerCase();
+      const filtered = db.filter(i => 
+        (i.resi || "").toLowerCase().includes(q) || 
+        (i.no_surat || "").toLowerCase().includes(q) || 
+        (i.tujuan || "").toLowerCase().includes(q)
+      );
+      renderRekap(filtered);
+    };
+
+    window.onload = () => {
+      document.getElementById('tanggalKirim').valueAsDate = new Date();
+      fetchAllData();
+    };
   </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9be43a3217af0af4',t:'MTc2ODQ2ODA5NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</body>
 </html>
